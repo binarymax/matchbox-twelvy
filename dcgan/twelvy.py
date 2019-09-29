@@ -9,7 +9,7 @@ import torch.backends.cudnn as cudnn
 import torchvision.utils as vutils
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--dataroot', required=True, help='path to dataset')
+parser.add_argument('--dataroot', required=False, help='path to dataset')
 parser.add_argument('--imageSize', type=int, default=64, help='the height / width of the input image to network')
 parser.add_argument('--nz', type=int, default=100, help='size of the latent z vector')
 parser.add_argument('--ngf', type=int, default=64)
@@ -17,6 +17,7 @@ parser.add_argument('--ndf', type=int, default=64)
 parser.add_argument('--cuda', action='store_true', help='enables cuda')
 parser.add_argument('--ngpu', type=int, default=1, help='number of GPUs to use')
 parser.add_argument('--netG', default='', help="path to netG (to generate images)")
+parser.add_argument('--outf', default='.', help='folder to output images and model checkpoints')
 parser.add_argument('--manualSeed', type=int, help='manual seed')
 
 opt = parser.parse_args()
@@ -112,10 +113,18 @@ class Generator(nn.Module):
 
 print('Loading model...')
 
-netG = Generator(ngpu).to(device)
-netG.apply(weights_init)
 if opt.netG != '':
-    netG.load_state_dict(torch.load(opt.netG))
+    netG = Generator(ngpu).to(device)
+    netG.apply(weights_init)
+    if torch.cuda.is_available():
+        netG.load_state_dict(torch.load(opt.netG))
+    else:
+        netG.load_state_dict(torch.load(opt.netG,map_location=torch.device('cpu')))
+
+else:
+    print('Model not specified! Use --netG [filename] to load the model when running')
+    assert netG
+
 
 print('Model loaded, generating twelvys...')
 
