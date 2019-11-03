@@ -17,6 +17,7 @@ parser.add_argument('--ndf', type=int, default=64)
 parser.add_argument('--cuda', action='store_true', help='enables cuda')
 parser.add_argument('--ngpu', type=int, default=1, help='number of GPUs to use')
 parser.add_argument('--netG', default='', help="path to netG (to generate images)")
+parser.add_argument('--netD', default='', help="path to netD (to generate images)")
 parser.add_argument('--outf', default='.', help='folder to output images and model checkpoints')
 parser.add_argument('--manualSeed', type=int, help='manual seed')
 
@@ -54,7 +55,7 @@ if opt.dataroot:
                                    transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
                                ]))
     assert dataset
-    dataloader = torch.utils.data.DataLoader(dataset, batch_size=64, shuffle=False, num_workers=2)
+    dataloader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=False, num_workers=1)
     noisy = False
 
 device = torch.device("cuda:0" if opt.cuda else "cpu")
@@ -111,6 +112,49 @@ class Generator(nn.Module):
             output = self.main(input)
         return output
 
+class Discriminator(nn.Module):
+    def __init__(self, ngpu):
+        super(Discriminator, self).__init__()
+        self.ngpu = ngpu
+        self.main = nn.Sequential(
+            # input is (nc) x 64 x 64
+            nn.Conv2d(nc     , ndf    , 4, 2, 1, bias=False),
+            nn.LeakyReLU(0.2, inplace=True),
+
+            # state size. (ndf) x 32 x 32
+            nn.Conv2d(ndf    , ndf * 2, 4, 2, 1, bias=False),
+            nn.BatchNorm2d(ndf * 2),
+            nn.LeakyReLU(0.2, inplace=True),
+
+            # state size. (ndf*2) x 16 x 16
+            nn.Conv2d(ndf * 2, ndf * 4, 4, 2, 1, bias=False),
+            nn.BatchNorm2d(ndf * 4),
+            nn.LeakyReLU(0.2, inplace=True),
+
+            # state size. (ndf*4) x 8 x 8
+            nn.Conv2d(ndf * 4, ndf * 8, 4, 2, 1, bias=False),
+            nn.BatchNorm2d(ndf * 8),
+            nn.LeakyReLU(0.2, inplace=True),
+
+            # state size. (ndf*8) x 4 x 4
+            nn.Conv2d(ndf * 8, ndf * 16, 4, 2, 1, bias=False),
+            nn.BatchNorm2d(ndf * 16),
+            nn.LeakyReLU(0.2, inplace=True),
+
+            # state size. (ndf*8) x 4 x 4
+            nn.Conv2d(ndf * 16, 1, 4, 1, 0, bias=False),
+            nn.Sigmoid()
+        )
+
+    def forward(self, input):
+        if input.is_cuda and self.ngpu > 1:
+            output = nn.parallel.data_parallel(self.main, input, range(self.ngpu))
+        else:
+            output = self.main(input)
+
+        return output.view(-1, 1).squeeze(1)
+
+
 print('Loading model...')
 
 if opt.netG != '':
@@ -121,9 +165,14 @@ if opt.netG != '':
     else:
         netG.load_state_dict(torch.load(opt.netG,map_location=torch.device('cpu')))
 
-else:
-    print('Model not specified! Use --netG [filename] to load the model when running')
-    assert netG
+if opt.netD != '':
+    netD = Discriminator(ngpu).to(device)
+    netD.apply(weights_init)
+    if torch.cuda.is_available():
+        netD.load_state_dict(torch.load(opt.netD))
+    else:
+        netD.load_state_dict(torch.load(opt.netD,map_location=torch.device('cpu')))
+    print(netD)
 
 
 print('Model loaded, generating twelvys...')
@@ -135,7 +184,7 @@ if noisy:
 else:
     for i, data in enumerate(dataloader, 0):
         source_image = data[0].to(device)
-        fake = netG(source_image)
+        fake = netD(source_image)
         vutils.save_image(fake.detach(),'%s/twelvy_%03d.png' % (opt.outf, i),normalize=True)
 
 print('Done')
