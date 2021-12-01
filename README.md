@@ -1,6 +1,6 @@
 # Matchbox Twelvy
 
-Uses a DCGAN to make fake matchbox car designs
+Uses a DCGAN to make fake matchbox car designs that look like they were painted quickly by a twelve year old
 
 ## Examples
 
