@@ -2,6 +2,13 @@
 
 Uses a DCGAN to make fake matchbox car designs
 
+## Examples
+
+Example outputs are in https://github.com/binarymax/matchbox-twelvy/tree/master/twelvys
+
+![example GAN output](https://github.com/binarymax/matchbox-twelvy/blob/master/twelvys/onesy_00.png?raw=true)
+![example GAN output](https://github.com/binarymax/matchbox-twelvy/blob/master/twelvys/onesy_07.png?raw=true)
+
 ## Prerequisites
 
 A \*nix machine with:
@@ -27,16 +34,11 @@ cd shape
 ```
 
 3. Train the model
-(I trained for 72 hours nonstop to get the results in the demo)
+(I trained for 72 hours nonstop on a GeForce GTX 1080 to get the results in the demo)
 ```bash
 cd dcgan
 .'/train-jpg-images.sh'
 ```
-STARTED Mon 13:52
-
-
-4. Sort & resize?
-polachok/py-phash/tree/python3
 
 ## Credits
 All images credit https://matchbox.fandom.com/ (CC-BA-SA)
